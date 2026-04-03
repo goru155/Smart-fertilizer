@@ -1,0 +1,45 @@
+{
+  "name": "smart-agriculture-backend",
+  "version": "1.0.0",
+  "description": "Smart Agriculture IoT Dashboard Backend — ESP32 + MQTT + WebSocket + Auth",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "prod": "cross-env NODE_ENV=production node server.js"
+  },
+  "keywords": [
+    "iot",
+    "smart-agriculture",
+    "mqtt",
+    "websocket",
+    "esp32"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.14.0",
+    "bcryptjs": "^2.4.3",
+    "chart.js": "^4.5.1",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "jwt-decode": "^4.0.0",
+    "mapbox-gl": "^3.21.0",
+    "mongoose": "^8.0.3",
+    "mqtt": "^5.3.4",
+    "passport": "^0.7.0",
+    "passport-facebook": "^3.0.0",
+    "passport-google-oauth20": "^2.0.0",
+    "socket.io": "^4.6.1",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "nodemon": "^3.0.2"
+  }
+}
