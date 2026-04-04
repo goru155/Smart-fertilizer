@@ -77,6 +77,10 @@ const initPassport = () => {
               'google',
               oauthProfile
             )
+            // Set needsOnboarding if not already set
+            if (!user.needsOnboarding && !user.farmerProfile?.contact) {
+              user = await db.updateUser(user.id || user._id, { needsOnboarding: true })
+            }
             return done(null, user)
           }
         }
@@ -94,17 +98,19 @@ const initPassport = () => {
   ))
 
   // ── FACEBOOK STRATEGY ───────────────────────────
-  passport.use(new FacebookStrategy(
-    {
-      // Credentials from Facebook Developer Console
-      clientID:     process.env.FACEBOOK_APP_ID,
-      clientSecret: process.env.FACEBOOK_APP_SECRET,
-      callbackURL:  process.env.FACEBOOK_CALLBACK_URL,
+  // Only initialize if credentials are provided
+  if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+    passport.use(new FacebookStrategy(
+      {
+        // Credentials from Facebook Developer Console
+        clientID:     process.env.FACEBOOK_APP_ID,
+        clientSecret: process.env.FACEBOOK_APP_SECRET,
+        callbackURL:  process.env.FACEBOOK_CALLBACK_URL,
 
-      // Request email field from Facebook
-      // Facebook does not include it by default
-      profileFields: ['id', 'displayName', 'email', 'photos']
-    },
+        // Request email field from Facebook
+        // Facebook does not include it by default
+        profileFields: ['id', 'displayName', 'email', 'photos']
+      },
 
     // Same structure as Google callback
     async (accessToken, refreshToken, profile, done) => {
@@ -141,6 +147,10 @@ const initPassport = () => {
               'facebook',
               oauthProfile
             )
+            // Set needsOnboarding if not already set
+            if (!user.needsOnboarding && !user.farmerProfile?.contact) {
+              user = await db.updateUser(user.id || user._id, { needsOnboarding: true })
+            }
             return done(null, user)
           }
         }
@@ -157,6 +167,7 @@ const initPassport = () => {
       }
     }
   ))
+  }
 
   // ── SERIALIZE / DESERIALIZE ─────────────────────
   // Required by Passport even in JWT-based systems

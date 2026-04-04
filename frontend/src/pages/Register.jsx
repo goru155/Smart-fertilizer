@@ -1,14 +1,20 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { authAPI, getAccessToken } from '../services/api'
 
 const Register = () => {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [currentStep, setCurrentStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState({ message: '', type: '' })
+  const [showSummary, setShowSummary] = useState(false)
+  const [savedData, setSavedData] = useState(null)
+  const [isOnboarding, setIsOnboarding] = useState(false)
+  const [oauthProvider, setOauthProvider] = useState(null)
 
   const [formData, setFormData] = useState({
     farmerName: '',
@@ -34,6 +40,31 @@ const Register = () => {
 
   const TOTAL_STEPS = 12
 
+  // Check if this is an OAuth onboarding flow
+  useEffect(() => {
+    const token = getAccessToken()
+    if (token) {
+      // User has token - check if they need onboarding
+      authAPI.getCurrentUser().then(user => {
+        if (user && user.needsOnboarding) {
+          setIsOnboarding(true)
+          // Pre-fill name and email from OAuth profile
+          setFormData(prev => ({
+            ...prev,
+            farmerName: user.name || '',
+            farmerEmail: user.email || ''
+          }))
+          // Detect OAuth provider from user data
+          if (user.oauthAccounts && user.oauthAccounts.length > 0) {
+            setOauthProvider(user.oauthAccounts[0].provider)
+          }
+        }
+      }).catch(() => {
+        // Not authenticated - regular signup flow
+      })
+    }
+  }, [])
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -42,81 +73,37 @@ const Register = () => {
 
   const validateStep = (stepIndex) => {
     switch (stepIndex) {
-      case 0: // Farmer name
-        if (!formData.farmerName.trim()) {
-          return 'Please enter the farmer name.'
-        }
+      case 0:
+        if (!formData.farmerName.trim()) return 'Please enter the farmer name.'
         break
-      case 1: // Contact
-        if (!formData.farmerContact.trim()) {
-          return 'Please enter the contact number.'
-        }
-        if (formData.farmerContact.replace(/\D/g, '').length < 10) {
-          return 'Please enter a valid contact number with at least 10 digits.'
-        }
+      case 1:
+        if (!formData.farmerContact.trim()) return 'Please enter the contact number.'
+        if (formData.farmerContact.replace(/\D/g, '').length < 10) return 'Please enter a valid contact number with at least 10 digits.'
         break
-      case 2: // Email
-        if (!formData.farmerEmail.trim()) {
-          return 'Please enter the email address.'
-        }
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        if (!emailPattern.test(formData.farmerEmail)) {
-          return 'Please enter a valid email address.'
-        }
+      case 4:
+        if (!formData.farmerLocality.trim()) return 'Please enter the locality.'
         break
-      case 3: // Password
-        if (!formData.accountPassword) {
-          return 'Please create a password.'
-        }
-        if (formData.accountPassword.length < 6) {
-          return 'Password must be at least 6 characters long.'
-        }
-        if (formData.confirmPassword !== formData.accountPassword) {
-          return 'Confirm password must match the created password.'
-        }
+      case 5:
+        if (!formData.fieldSize || Number(formData.fieldSize) <= 0) return 'Please enter a valid field size greater than zero.'
+        if (!formData.fieldUnit) return 'Please select a unit of measurement.'
         break
-      case 4: // Locality
-        if (!formData.farmerLocality.trim()) {
-          return 'Please enter the locality.'
-        }
+      case 6:
+        if (!formData.sectorCount || Number(formData.sectorCount) < 1) return 'Please enter at least 1 sector.'
         break
-      case 5: // Field size
-        if (!formData.fieldSize || Number(formData.fieldSize) <= 0) {
-          return 'Please enter a valid field size greater than zero.'
-        }
-        if (!formData.fieldUnit) {
-          return 'Please select a unit of measurement.'
-        }
+      case 7:
+        if (!formData.soilType) return 'Please select a soil type.'
         break
-      case 6: // Sector count
-        if (!formData.sectorCount || Number(formData.sectorCount) < 1) {
-          return 'Please enter at least 1 sector.'
-        }
+      case 8:
+        if (!formData.irrigationType) return 'Please select an irrigation type.'
         break
-      case 7: // Soil type
-        if (!formData.soilType) {
-          return 'Please select a soil type.'
-        }
+      case 9:
+        if (!formData.fertilizerType) return 'Please select a fertilizer type.'
         break
-      case 8: // Irrigation type
-        if (!formData.irrigationType) {
-          return 'Please select an irrigation type.'
-        }
+      case 10:
+        if (!formData.cropPlan) return 'Please select a crop plan.'
         break
-      case 9: // Fertilizer type
-        if (!formData.fertilizerType) {
-          return 'Please select a fertilizer type.'
-        }
-        break
-      case 10: // Crop plan
-        if (!formData.cropPlan) {
-          return 'Please select a crop plan.'
-        }
-        break
-      case 11: // Crop names
-        if (!formData.cropNames.trim()) {
-          return 'Please enter crop details.'
-        }
+      case 11:
+        if (!formData.cropNames.trim()) return 'Please enter crop details.'
         break
       default:
         break
@@ -125,7 +112,8 @@ const Register = () => {
   }
 
   const handleNext = async () => {
-    const error = validateStep(currentStep)
+    const actualStep = getActualStepIndex(currentStep)
+    const error = validateStep(actualStep)
     if (error) {
       setStatus({ message: error, type: 'error' })
       return
@@ -135,34 +123,59 @@ const Register = () => {
       setCurrentStep(prev => prev + 1)
       setStatus({ message: '', type: '' })
     } else {
-      // Submit registration
       setLoading(true)
-      const userData = {
-        name: formData.farmerName,
-        email: formData.farmerEmail,
-        password: formData.accountPassword,
-        // Additional farmer data (stored in backend if schema supports)
-        contact: formData.farmerContact,
-        locality: formData.farmerLocality,
-        fieldSize: formData.fieldSize,
-        fieldUnit: formData.fieldUnit,
-        sectorCount: formData.sectorCount,
-        soilType: formData.soilType,
-        irrigationType: formData.irrigationType,
-        fertilizerType: formData.fertilizerType,
-        cropPlan: formData.cropPlan,
-        cropNames: formData.cropNames
-      }
 
-      const result = await register(userData)
+      if (isOnboarding) {
+        // OAuth user completing onboarding
+        const onboardingData = {
+          name: formData.farmerName,
+          contact: formData.farmerContact,
+          locality: formData.farmerLocality,
+          fieldSize: formData.fieldSize,
+          fieldUnit: formData.fieldUnit,
+          sectorCount: formData.sectorCount,
+          soilType: formData.soilType,
+          irrigationType: formData.irrigationType,
+          fertilizerType: formData.fertilizerType,
+          cropPlan: formData.cropPlan,
+          cropNames: formData.cropNames
+        }
 
-      if (result.success) {
-        setStatus({ message: result.message, type: 'success' })
-        setTimeout(() => {
-          navigate('/login')
-        }, 1500)
+        try {
+          const { data } = await authAPI.post('/auth/complete-onboarding', onboardingData)
+          setSavedData(formData)
+          setShowSummary(true)
+          setStatus({ message: 'Onboarding completed successfully!', type: 'success' })
+        } catch (error) {
+          setStatus({ message: error.response?.data?.message || 'Failed to complete onboarding', type: 'error' })
+        }
       } else {
-        setStatus({ message: result.message, type: 'error' })
+        // Regular registration
+        const userData = {
+          name: formData.farmerName,
+          email: formData.farmerEmail,
+          password: formData.accountPassword,
+          contact: formData.farmerContact,
+          locality: formData.farmerLocality,
+          fieldSize: formData.fieldSize,
+          fieldUnit: formData.fieldUnit,
+          sectorCount: formData.sectorCount,
+          soilType: formData.soilType,
+          irrigationType: formData.irrigationType,
+          fertilizerType: formData.fertilizerType,
+          cropPlan: formData.cropPlan,
+          cropNames: formData.cropNames
+        }
+
+        const result = await register(userData)
+
+        if (result.success) {
+          setSavedData(formData)
+          setShowSummary(true)
+          setStatus({ message: result.message, type: 'success' })
+        } else {
+          setStatus({ message: result.message, type: 'error' })
+        }
       }
       setLoading(false)
     }
@@ -196,6 +209,32 @@ const Register = () => {
     setStatus({ message: '', type: '' })
   }
 
+  const handleEdit = () => {
+    setShowSummary(false)
+  }
+
+  const handleGoToLogin = () => {
+    if (isOnboarding) {
+      // OAuth user - redirect to dashboard after onboarding
+      navigate('/dashboard', { replace: true })
+    } else {
+      // Regular signup - go to login to sign in
+      navigate('/login', { replace: true })
+    }
+  }
+
+  // OAuth users skip email (step 2) and password (step 3) steps
+  // So we have 10 steps instead of 12 for OAuth onboarding
+  const TOTAL_STEPS = isOnboarding ? 10 : 12
+
+  // Map display step to actual step index for OAuth users
+  const getActualStepIndex = (displayStep) => {
+    if (!isOnboarding) return displayStep
+    // Skip steps 2 and 3 (email and password) for OAuth users
+    if (displayStep >= 2) return displayStep + 2
+    return displayStep
+  }
+
   const getPasswordStrength = () => {
     const pwd = formData.accountPassword
     let score = 0
@@ -220,7 +259,9 @@ const Register = () => {
   const strength = getPasswordStrength()
 
   const renderStep = () => {
-    switch (currentStep) {
+    const actualStep = getActualStepIndex(currentStep)
+
+    switch (actualStep) {
       case 0:
         return (
           <>
@@ -235,6 +276,7 @@ const Register = () => {
               value={formData.farmerName}
               onChange={handleChange}
               required
+              readOnly={isOnboarding}
             />
           </>
         )
@@ -255,95 +297,10 @@ const Register = () => {
             />
           </>
         )
-      case 2:
-        return (
-          <>
-            <div className="step-tag">Step 3</div>
-            <div className="step-question">What is the email of the farmer?</div>
-            <div className="step-help">This email will be used for login.</div>
-            <input
-              name="farmerEmail"
-              type="email"
-              className="wizard-control"
-              placeholder="Enter email address"
-              value={formData.farmerEmail}
-              onChange={handleChange}
-              required
-            />
-          </>
-        )
-      case 3:
-        return (
-          <>
-            <div className="step-tag">Step 4</div>
-            <div className="step-question">Create a password for the account</div>
-            <div className="step-help">Choose a secure password with at least 6 characters.</div>
-
-            <div className="wizard-password-wrap">
-              <input
-                name="accountPassword"
-                type={showPasswords.password ? 'text' : 'password'}
-                className="wizard-control"
-                placeholder="Create password"
-                value={formData.accountPassword}
-                onChange={handleChange}
-                required
-              />
-              <button
-                type="button"
-                className="wizard-password-toggle"
-                onClick={() => setShowPasswords(p => ({ ...p, password: !p.password }))}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  {showPasswords.password ? (
-                    <><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.77 21.77 0 015.06-6.94"></path><path d="M1 1l22 22"></path></>
-                  ) : (
-                    <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></>
-                  )}
-                </svg>
-              </button>
-            </div>
-
-            <div className="password-strength-wrap">
-              <div className="password-strength-head">
-                <span>Password strength</span>
-                <span id="passwordStrengthText" style={{ color: strength.color }}>{strength.label}</span>
-              </div>
-              <div className="password-strength-track">
-                <div id="passwordStrengthBar" style={{ width: strength.width, background: strength.color }}></div>
-              </div>
-            </div>
-
-            <div className="wizard-password-wrap">
-              <input
-                name="confirmPassword"
-                type={showPasswords.confirm ? 'text' : 'password'}
-                className="wizard-control"
-                placeholder="Confirm password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-              />
-              <button
-                type="button"
-                className="wizard-password-toggle"
-                onClick={() => setShowPasswords(p => ({ ...p, confirm: !p.confirm }))}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  {showPasswords.confirm ? (
-                    <><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.77 21.77 0 015.06-6.94"></path><path d="M1 1l22 22"></path></>
-                  ) : (
-                    <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></>
-                  )}
-                </svg>
-              </button>
-            </div>
-          </>
-        )
       case 4:
         return (
           <>
-            <div className="step-tag">Step 5</div>
+            <div className="step-tag">Step 3</div>
             <div className="step-question">What is the locality of the farmer?</div>
             <div className="step-help">Enter the village, town, city area, or locality of the farmer.</div>
             <input
@@ -360,7 +317,7 @@ const Register = () => {
       case 5:
         return (
           <>
-            <div className="step-tag">Step 6</div>
+            <div className="step-tag">Step 4</div>
             <div className="step-question">What is the size of the field of the farmer?</div>
             <div className="step-help">Enter the field size and choose the measurement unit.</div>
             <div className="split-input">
@@ -393,7 +350,7 @@ const Register = () => {
       case 6:
         return (
           <>
-            <div className="step-tag">Step 7</div>
+            <div className="step-tag">Step 5</div>
             <div className="step-question">In how many sectors does the farmer want to divide the field?</div>
             <div className="step-help">This helps organize monitoring and crop planning better.</div>
             <input
@@ -411,7 +368,7 @@ const Register = () => {
       case 7:
         return (
           <>
-            <div className="step-tag">Step 8</div>
+            <div className="step-tag">Step 6</div>
             <div className="step-question">What type of soil is being used for crop growth?</div>
             <div className="step-help">Select the soil type that best matches the field.</div>
             <select
@@ -436,7 +393,7 @@ const Register = () => {
       case 8:
         return (
           <>
-            <div className="step-tag">Step 9</div>
+            <div className="step-tag">Step 7</div>
             <div className="step-question">How are the irrigation facilities?</div>
             <div className="step-help">Choose the irrigation setup available in the field.</div>
             <select
@@ -459,7 +416,7 @@ const Register = () => {
       case 9:
         return (
           <>
-            <div className="step-tag">Step 10</div>
+            <div className="step-tag">Step 8</div>
             <div className="step-question">Which type of fertilizer is being used?</div>
             <div className="step-help">Pick the fertilizer category currently planned for use.</div>
             <select
@@ -483,8 +440,8 @@ const Register = () => {
       case 10:
         return (
           <>
-            <div className="step-tag">Step 11</div>
-            <div className="step-question">Is the farmer planning to plant a single crop in the whole field or different crops in the field?</div>
+            <div className="step-tag">Step 9</div>
+            <div className="step-question">Is the farmer planning a single crop in the whole field or different crops in different sectors?</div>
             <div className="step-help">Select the crop planning method for the whole field.</div>
             <select
               name="cropPlan"
@@ -502,7 +459,7 @@ const Register = () => {
       case 11:
         return (
           <>
-            <div className="step-tag">Step 12</div>
+            <div className="step-tag">Step 10</div>
             <div className="step-question">Which crop is going to be planted in the field?</div>
             <div className="step-help">Enter the crop name, or write sector-wise crop details if there are different crops.</div>
             <textarea
@@ -520,6 +477,80 @@ const Register = () => {
     }
   }
 
+  // Summary Screen
+  if (showSummary && savedData) {
+    return (
+      <div className="register-page">
+        <div className="auth-card summary-card">
+          <div className="summary-header">
+            <div>
+              <div className="summary-title">Your account is created</div>
+              <div className="summary-subtitle">The farmer information has been saved successfully.</div>
+            </div>
+            <div className="saved-pill">Saved Successfully</div>
+          </div>
+
+          <div className="summary-grid">
+            <div className="summary-item">
+              <small>Farmer Name</small>
+              <strong>{savedData.farmerName || '—'}</strong>
+            </div>
+            <div className="summary-item">
+              <small>Contact Number</small>
+              <strong>{savedData.farmerContact || '—'}</strong>
+            </div>
+            {!isOnboarding && (
+              <div className="summary-item">
+                <small>Email</small>
+                <strong>{savedData.farmerEmail || '—'}</strong>
+              </div>
+            )}
+            <div className="summary-item">
+              <small>Locality</small>
+              <strong>{savedData.farmerLocality || '—'}</strong>
+            </div>
+            <div className="summary-item">
+              <small>Field Size</small>
+              <strong>{savedData.fieldSize} {savedData.fieldUnit || '—'}</strong>
+            </div>
+            <div className="summary-item">
+              <small>Number of Sectors</small>
+              <strong>{savedData.sectorCount || '—'}</strong>
+            </div>
+            <div className="summary-item">
+              <small>Soil Type</small>
+              <strong>{savedData.soilType || '—'}</strong>
+            </div>
+            <div className="summary-item">
+              <small>Irrigation Facilities</small>
+              <strong>{savedData.irrigationType || '—'}</strong>
+            </div>
+            <div className="summary-item">
+              <small>Fertilizer Type</small>
+              <strong>{savedData.fertilizerType || '—'}</strong>
+            </div>
+            <div className="summary-item">
+              <small>Crop Planning</small>
+              <strong>{savedData.cropPlan || '—'}</strong>
+            </div>
+            <div className="summary-item full">
+              <small>Crop Details</small>
+              <strong>{savedData.cropNames || '—'}</strong>
+            </div>
+          </div>
+
+          <div className="actions-row">
+            <button className="secondary-btn" type="button" onClick={handleEdit}>Edit Information</button>
+            <button className="save-btn" type="button" onClick={handleGoToLogin}>Go to Login</button>
+          </div>
+        </div>
+
+        <style>{registerStyles}</style>
+      </div>
+    )
+  }
+
+  // Registration Wizard
   return (
     <div className="register-page">
       <div className="auth-card signup-card">
@@ -542,6 +573,17 @@ const Register = () => {
               </div>
               <div className="progress-label">Question {currentStep + 1} of {TOTAL_STEPS}</div>
             </div>
+
+            {isOnboarding && oauthProvider && (
+              <div style={{
+                textAlign: 'center',
+                color: '#2b7f56',
+                fontSize: '0.9rem',
+                marginBottom: '12px'
+              }}>
+                Completing setup for {oauthProvider} account
+              </div>
+            )}
 
             <div className="wizard-step active">
               {renderStep()}
@@ -597,7 +639,8 @@ const registerStyles = `
       url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat fixed;
   }
 
-  .auth-card.signup-card {
+  .auth-card.signup-card,
+  .auth-card.summary-card {
     max-width: 900px;
     padding: 30px;
     border-radius: 36px;
@@ -619,13 +662,15 @@ const registerStyles = `
     flex-wrap: wrap;
   }
 
-  .page-title {
+  .page-title,
+  .summary-title {
     color: #23433a;
     font-size: 2.2rem;
     font-weight: 800;
   }
 
-  .page-subtitle {
+  .page-subtitle,
+  .summary-subtitle {
     color: #6c746f;
     font-size: 1rem;
     margin-top: 6px;
@@ -877,25 +922,93 @@ const registerStyles = `
     color: #b43c3c;
   }
 
+  .summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .saved-pill {
+    padding: 14px 18px;
+    border-radius: 18px;
+    background: rgba(86, 194, 113, 0.15);
+    color: #1e7d48;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .summary-item {
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(74, 92, 83, 0.1);
+    border-radius: 20px;
+    padding: 18px;
+  }
+
+  .summary-item.full {
+    grid-column: 1 / -1;
+  }
+
+  .summary-item small {
+    display: block;
+    color: #7b847f;
+    font-size: 0.86rem;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .summary-item strong {
+    color: #23433a;
+    font-size: 1.02rem;
+    line-height: 1.5;
+  }
+
+  .actions-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+
   @media (max-width: 900px) {
-    .auth-card.signup-card { padding: 20px; }
+    .auth-card.signup-card,
+    .auth-card.summary-card {
+      padding: 20px;
+    }
     .signup-inner { padding: 24px; }
-    .page-title { font-size: 1.8rem; }
+    .page-title, .summary-title { font-size: 1.8rem; }
     .step-question { font-size: 1.55rem; }
     .wizard-step { min-height: 320px; }
     .split-input { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr; }
   }
 
   @media (max-width: 560px) {
     .register-page { padding: 14px; }
-    .auth-card.signup-card { border-radius: 28px; padding: 16px; }
+    .auth-card.signup-card,
+    .auth-card.summary-card {
+      border-radius: 28px;
+      padding: 16px;
+    }
     .signup-inner { padding: 20px; }
-    .page-title { font-size: 1.6rem; }
+    .page-title, .summary-title { font-size: 1.6rem; }
     .wizard-actions { flex-direction: column; align-items: stretch; }
     .wizard-actions-right { width: 100%; margin-left: 0; }
     .wizard-actions-right button,
     .wizard-actions > button { width: 100%; }
     .step-question { font-size: 1.35rem; }
+    .actions-row { flex-direction: column; }
+    .actions-row button { width: 100%; }
   }
 `
 

@@ -345,6 +345,7 @@ const me = async (req, res) => {
         name:  user.name,
         email: user.email,
         role:  user.role,
+        needsOnboarding: user.needsOnboarding || false,
         // Include OAuth accounts info (without secrets)
         oauthAccounts: (user.oauthAccounts || []).map(acc => ({
           provider: acc.provider,
@@ -412,6 +413,73 @@ const oauthSuccess = async (req, res, next) => {
   }
 }
 
+// ─── COMPLETE ONBOARDING ─────────────────────────
+// POST /api/auth/complete-onboarding
+// Completes farmer profile for OAuth users
+
+const completeOnboarding = async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const {
+      name,
+      contact,
+      locality,
+      fieldSize,
+      fieldUnit,
+      sectorCount,
+      soilType,
+      irrigationType,
+      fertilizerType,
+      cropPlan,
+      cropNames
+    } = req.body
+
+    // Validate required fields
+    if (!name || !contact || !locality || !fieldSize || !sectorCount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Required fields are missing'
+      })
+    }
+
+    // Update user with farmer profile
+    const updatedUser = await db.updateUser(userId, {
+      name,
+      needsOnboarding: false,
+      farmerProfile: {
+        contact,
+        locality,
+        fieldSize: parseFloat(fieldSize),
+        fieldUnit,
+        sectorCount: parseInt(sectorCount),
+        soilType,
+        irrigationType,
+        fertilizerType,
+        cropPlan,
+        cropNames
+      }
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Onboarding completed successfully',
+      user: {
+        id: updatedUser.id || updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        needsOnboarding: false
+      }
+    })
+
+  } catch (error) {
+    console.error('Complete onboarding error:', error.message)
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to complete onboarding. Please try again.'
+    })
+  }
+}
+
 // ─── EXPORTS ─────────────────────────────────────
 module.exports = {
   register,
@@ -419,5 +487,6 @@ module.exports = {
   refresh,
   logout,
   me,
-  oauthSuccess
+  oauthSuccess,
+  completeOnboarding
 }

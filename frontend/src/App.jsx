@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext'
 // Auth pages
 import Login from './pages/Login'
 import Register from './pages/Register'
+import OAuthCallback from './pages/OAuthCallback'
 
 // Dashboard pages
 import Dashboard from './pages/Dashboard'
@@ -86,6 +87,7 @@ function App() {
             <Register />
           </PublicRoute>
         } />
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={

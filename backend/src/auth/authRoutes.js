@@ -31,7 +31,8 @@ const {
   refresh,
   logout,
   me,
-  oauthSuccess
+  oauthSuccess,
+  completeOnboarding
 } = require('./authController')
 
 // ─── RATE LIMITERS ───────────────────────────────
@@ -104,6 +105,14 @@ router.post('/logout',
 router.get('/me',
   verifyAccessToken,  // check JWT first
   me                  // return user data
+)
+
+// POST /api/auth/complete-onboarding
+// Completes farmer profile for OAuth users
+router.post('/complete-onboarding',
+  verifyAccessToken,  // must be authenticated
+  detectPlatform,
+  completeOnboarding  // save farmer profile
 )
 
 // ─── GOOGLE OAUTH ROUTES ─────────────────────────

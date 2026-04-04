@@ -135,6 +135,8 @@ class InMemoryAdapter extends DBInterface {
       email:    oauthProfile.email,
       password: null,              // no password for OAuth
       role:     'user',
+      needsOnboarding: true,       // New OAuth users need to complete farmer onboarding
+      farmerProfile: null,         // Will be populated during onboarding
       oauthAccounts: [{
         provider,
         oauthId:  oauthProfile.oauthId,

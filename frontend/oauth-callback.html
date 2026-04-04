@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Authenticating... | AgroFarm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 28px;
+      background:
+        linear-gradient(rgba(82, 139, 220, 0.16), rgba(82, 139, 220, 0.16)),
+        url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat fixed;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 500px;
+      background: rgba(252, 252, 249, 0.92);
+      border-radius: 46px;
+      box-shadow: 0 24px 50px rgba(35, 67, 58, 0.18);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      padding: 48px 40px;
+      text-align: center;
+    }
+
+    .logo-badge {
+      width: 100px;
+      height: 100px;
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(246, 250, 248, 0.98), rgba(222, 238, 230, 0.95));
+      margin: 0 auto 24px;
+      box-shadow: 0 18px 28px rgba(75, 108, 93, 0.16);
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(114, 167, 132, 0.18);
+    }
+
+    .leaf-mark {
+      width: 60px;
+      height: 60px;
+      position: relative;
+    }
+
+    .leaf-mark::before,
+    .leaf-mark::after {
+      content: '';
+      position: absolute;
+      border-radius: 100% 0 100% 0;
+      background: linear-gradient(145deg, #3cb57a, #79d54f);
+    }
+
+    .leaf-mark::before {
+      width: 28px;
+      height: 40px;
+      left: 6px;
+      top: 10px;
+      transform: rotate(-36deg);
+    }
+
+    .leaf-mark::after {
+      width: 25px;
+      height: 35px;
+      right: 6px;
+      top: 3px;
+      transform: rotate(26deg);
+    }
+
+    .leaf-stem {
+      position: absolute;
+      left: 50%;
+      bottom: 3px;
+      width: 5px;
+      height: 35px;
+      background: linear-gradient(180deg, #5aa05f, #3c6f46);
+      border-radius: 6px;
+      transform: translateX(-50%);
+    }
+
+    .leaf-soil {
+      position: absolute;
+      left: 50%;
+      bottom: 1px;
+      width: 52px;
+      height: 14px;
+      background: linear-gradient(180deg, #7d5936, #5f4227);
+      border-radius: 50%;
+      transform: translateX(-50%);
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #23433a;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      color: #6c746f;
+      font-size: 1rem;
+      margin-bottom: 32px;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(94, 169, 69, 0.2);
+      border-top-color: #5ea945;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 24px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status-message {
+      color: #b43c3c;
+      font-size: 0.95rem;
+      font-weight: 600;
+      min-height: 24px;
+    }
+
+    .status-message.success {
+      color: #1e7d48;
+    }
+
+    .retry-btn {
+      margin-top: 20px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(90deg, #2ab18a, #8fd84f);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .retry-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .retry-btn.hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="auth-card">
+    <div class="logo-badge">
+      <div class="leaf-mark">
+        <span class="leaf-stem"></span>
+        <span class="leaf-soil"></span>
+      </div>
+    </div>
+
+    <h1 id="title">Authenticating...</h1>
+    <p class="subtitle" id="subtitle">Please wait while we complete your login</p>
+
+    <div class="spinner" id="spinner"></div>
+    <div class="status-message" id="statusMessage"></div>
+
+    <button class="retry-btn hidden" id="retryBtn">Try Again</button>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:5000/api';
+
+    const title = document.getElementById('title');
+    const subtitle = document.getElementById('subtitle');
+    const spinner = document.getElementById('spinner');
+    const statusMessage = document.getElementById('statusMessage');
+    const retryBtn = document.getElementById('retryBtn');
+
+    async function handleOAuthCallback() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const accessToken = urlParams.get('access_token');
+      const error = urlParams.get('error');
+
+      // Check for error
+      if (error) {
+        showError('Authentication failed. Please try again.');
+        return;
+      }
+
+      // Check for access token
+      if (!accessToken) {
+        showError('No authentication token received.');
+        return;
+      }
+
+      // Store the access token
+      localStorage.setItem('accessToken', accessToken);
+
+      // Update UI to show processing
+      title.textContent = 'Completing Setup...';
+      subtitle.textContent = 'Fetching your profile information';
+
+      try {
+        // Fetch user profile to verify token is valid
+        const response = await fetch(`${API_URL}/auth/me`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+
+        const data = await response.json();
+
+        if (data.user) {
+          // Success - redirect to dashboard
+          statusMessage.textContent = `Welcome, ${data.user.name}! Redirecting...`;
+          statusMessage.classList.add('success');
+          spinner.style.display = 'none';
+
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 1500);
+        } else {
+          throw new Error('Invalid user data received');
+        }
+      } catch (error) {
+        console.error('OAuth callback error:', error);
+        showError('Failed to complete authentication. Please try again.');
+      }
+    }
+
+    function showError(message) {
+      title.textContent = 'Authentication Failed';
+      subtitle.textContent = message;
+      spinner.style.display = 'none';
+      statusMessage.textContent = message;
+      retryBtn.classList.remove('hidden');
+    }
+
+    retryBtn.addEventListener('click', () => {
+      window.location.href = 'login.html';
+    });
+
+    // Handle the OAuth callback when page loads
+    handleOAuthCallback();
+  </script>
+</body>
+</html>

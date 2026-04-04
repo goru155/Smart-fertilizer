@@ -21,6 +21,15 @@ const attachTokens = (req, res) => {
   // before this middleware is called
   const { accessToken, refreshToken, user } = req.tokenData
 
+  // Check if this is an OAuth callback request that should redirect to frontend
+  const isOAuthCallback = req.path?.includes('/auth/google/callback') ||
+                          req.path?.includes('/auth/facebook/callback')
+
+  console.log('=== attachTokens called ===')
+  console.log('Platform:', req.platform)
+  console.log('Is OAuth Callback:', isOAuthCallback)
+  console.log('Has tokenData:', !!req.tokenData)
+
   // Determine cookie security based on environment
   // In production: secure=true (HTTPS only)
   // In development: secure=false (HTTP allowed)
@@ -40,9 +49,28 @@ const attachTokens = (req, res) => {
     })
 
     // Only access token in response body for web
+    // For OAuth callbacks, redirect to frontend with token
+    if (isOAuthCallback) {
+      // Set the cookie first
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure:   isProduction,
+        sameSite: 'strict',
+        maxAge:   7 * 24 * 60 * 60 * 1000
+      })
+
+      // Redirect to frontend OAuth callback handler with access token
+      // Include needsOnboarding flag so frontend can redirect new users
+      const frontendURL = process.env.FRONTEND_URL || 'http://localhost:3000'
+      const needsOnboarding = user.needsOnboarding || false
+      const redirectURL = `${frontendURL}/oauth/callback?access_token=${accessToken}&needs_onboarding=${needsOnboarding}`
+      console.log('OAuth redirect to:', redirectURL)
+      return res.redirect(redirectURL)
+    }
+
     return res.status(200).json({
       success:     true,
-      accessToken,            // store in memory (not localStorage)
+      accessToken,
       user: {
         id:    user.id    || user._id,
         name:  user.name,

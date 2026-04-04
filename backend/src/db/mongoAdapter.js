@@ -56,6 +56,24 @@ const UserSchema = new mongoose.Schema({
     enum:    ['user', 'admin'],
     default: 'user'
   },
+  // Flag to track if user needs to complete farmer onboarding
+  needsOnboarding: {
+    type:    Boolean,
+    default: false
+  },
+  // Farmer profile data (collected during onboarding)
+  farmerProfile: {
+    contact:      { type: String },
+    locality:     { type: String },
+    fieldSize:    { type: Number },
+    fieldUnit:    { type: String },
+    sectorCount:  { type: Number },
+    soilType:     { type: String },
+    irrigationType: { type: String },
+    fertilizerType: { type: String },
+    cropPlan:     { type: String },
+    cropNames:    { type: String }
+  },
   // Array of linked OAuth accounts
   oauthAccounts: [OAuthAccountSchema]
 }, {
@@ -186,6 +204,7 @@ class MongoAdapter extends DBInterface {
       email:    oauthProfile.email,
       password: null,
       role:     'user',
+      needsOnboarding: true,  // New OAuth users need to complete farmer onboarding
       oauthAccounts: [{
         provider,
         oauthId:  oauthProfile.oauthId,
