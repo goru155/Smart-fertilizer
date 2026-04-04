@@ -200,17 +200,16 @@ const Login = () => {
                 <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.099 4.388 23.094 10.125 24v-8.438H7.078v-3.489h3.047V9.413c0-3.017 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.962H15.83c-1.491 0-1.956.927-1.956 1.877v2.255h3.328l-.532 3.489h-2.796V24C19.612 23.094 24 18.099 24 12.073z"></path>
               </svg>
             </button>
-            <button
-              className="social-btn"
-              type="button"
-              onClick={() => handleSocialLogin('Apple')}
-              aria-label="Continue with Apple"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#111111" d="M16.365 1.43c0 1.14-.415 2.187-1.118 3.006-.846.982-2.227 1.74-3.425 1.643-.152-1.107.433-2.295 1.118-3.07.757-.855 2.065-1.472 3.425-1.579zM20.97 17.058c-.596 1.354-.88 1.957-1.647 3.17-1.067 1.685-2.575 3.784-4.445 3.799-1.666.016-2.096-1.085-4.357-1.072-2.262.013-2.734 1.093-4.4 1.077-1.87-.016-3.3-1.91-4.368-3.594C-1.217 16.42-.976 9.43 2.868 7.11c1.368-.827 3.53-1.325 5.62-.92 1.42.275 2.314.96 3.506.96 1.156 0 1.86-.703 3.512-.968 1.864-.3 3.875.339 5.208 1.547-4.573 2.51-3.83 9.004.256 9.329z"></path>
-              </svg>
-            </button>
           </div>
+
+          <p className="oauth-hint">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            Configure OAuth credentials in backend/.env to enable social login
+          </p>
 
           <p className="bottom-text">
             Don't have an account?{' '}
@@ -710,9 +709,27 @@ const loginStyles = `
 
   .social-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 16px;
-    margin-bottom: 30px;
+    margin-bottom: 24px;
+  }
+
+  .oauth-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(255, 193, 7, 0.12);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 12px;
+    color: #856404;
+    font-size: 0.85rem;
+    margin-bottom: 24px;
+  }
+
+  .oauth-hint svg {
+    flex-shrink: 0;
   }
 
   .social-btn {
@@ -799,7 +816,8 @@ const loginStyles = `
     .form-control { padding-left: 68px; padding-right: 58px; font-size: 1.08rem; }
     .icon-left { left: 22px; }
     .icon-right { right: 18px; }
-    .social-grid { grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .social-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .oauth-hint { font-size: 0.75rem; padding: 10px 12px; }
   }
 `
 
